@@ -24,7 +24,7 @@ const DEFAULTS = {
 const $ = (id) => document.getElementById(id);
 const tbody = document.querySelector("#rules tbody");
 
-function addRow(pattern = "", redirectTo = "") {
+function addRow(pattern = "", redirectTo = "", action = "redirect") {
   const tr = document.createElement("tr");
 
   const tdPattern = document.createElement("td");
@@ -35,6 +35,21 @@ function addRow(pattern = "", redirectTo = "") {
   inPattern.className = "pattern";
   tdPattern.appendChild(inPattern);
 
+  const tdAction = document.createElement("td");
+  const selAction = document.createElement("select");
+  selAction.className = "action";
+  for (const [val, label] of [
+    ["redirect", "Redirect"],
+    ["grayscale", "Grayscale"]
+  ]) {
+    const opt = document.createElement("option");
+    opt.value = val;
+    opt.textContent = label;
+    if (val === action) opt.selected = true;
+    selAction.appendChild(opt);
+  }
+  tdAction.appendChild(selAction);
+
   const tdRedirect = document.createElement("td");
   const inRedirect = document.createElement("input");
   inRedirect.type = "text";
@@ -42,6 +57,16 @@ function addRow(pattern = "", redirectTo = "") {
   inRedirect.value = redirectTo;
   inRedirect.className = "redirect";
   tdRedirect.appendChild(inRedirect);
+
+  function syncRedirectDisabled() {
+    const isGrayscale = selAction.value === "grayscale";
+    inRedirect.disabled = isGrayscale;
+    inRedirect.placeholder = isGrayscale
+      ? "(not used for grayscale)"
+      : "(blank = built-in page)";
+  }
+  selAction.addEventListener("change", syncRedirectDisabled);
+  syncRedirectDisabled();
 
   const tdDel = document.createElement("td");
   tdDel.className = "del";
@@ -53,6 +78,7 @@ function addRow(pattern = "", redirectTo = "") {
   tdDel.appendChild(del);
 
   tr.appendChild(tdPattern);
+  tr.appendChild(tdAction);
   tr.appendChild(tdRedirect);
   tr.appendChild(tdDel);
   tbody.appendChild(tr);
@@ -65,9 +91,10 @@ async function load() {
   $("delaySeconds").value = s.delaySeconds;
   tbody.innerHTML = "";
   if (!s.rules.length) {
-    addRow("", "");
+    addRow("", "", "redirect");
   } else {
-    for (const r of s.rules) addRow(r.pattern || "", r.redirectTo || "");
+    for (const r of s.rules)
+      addRow(r.pattern || "", r.redirectTo || "", r.action || "redirect");
   }
 }
 
@@ -76,8 +103,9 @@ async function save() {
   for (const tr of tbody.querySelectorAll("tr")) {
     const pattern = tr.querySelector(".pattern").value.trim();
     const redirectTo = tr.querySelector(".redirect").value.trim();
+    const action = tr.querySelector(".action").value;
     if (!pattern) continue;
-    rules.push({ pattern, redirectTo });
+    rules.push({ pattern, action, redirectTo });
   }
 
   const settings = {

@@ -3,7 +3,7 @@
   "name": "Get Back To Work",
   "version": "1.0.0",
   "description": "Redirects distraction sites to a reminder page so you stay focused.",
-  "permissions": ["webNavigation", "storage", "tabs"],
+  "permissions": ["webNavigation", "storage", "tabs", "scripting"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
@@ -13,6 +13,16 @@
     "open_in_tab": true
   },
   "action": {
-    "default_title": "Get Back To Work — Settings"
+    "default_title": "Get Back To Work — Settings",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   }
 }

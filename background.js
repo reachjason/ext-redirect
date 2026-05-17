@@ -84,6 +84,9 @@ function findMatch(url) {
   return null;
 }
 
+const GRAYSCALE_CSS =
+  "html{filter:grayscale(1) !important;-webkit-filter:grayscale(1) !important;}";
+
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
   if (details.frameId !== 0) return;
   const url = details.url;
@@ -95,6 +98,7 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
 
   const rule = findMatch(url);
   if (!rule) return;
+  if ((rule.action || "redirect") !== "redirect") return;
 
   let target;
   if (rule.redirectTo && rule.redirectTo.trim()) {
@@ -107,6 +111,25 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
 
   recordBlock(rule.pattern, url);
   chrome.tabs.update(details.tabId, { url: target });
+});
+
+chrome.webNavigation.onCommitted.addListener((details) => {
+  if (details.frameId !== 0) return;
+  const url = details.url;
+  if (!/^https?:/i.test(url)) return;
+
+  const rule = findMatch(url);
+  if (!rule) return;
+  if (rule.action !== "grayscale") return;
+
+  chrome.scripting
+    .insertCSS({
+      target: { tabId: details.tabId },
+      css: GRAYSCALE_CSS
+    })
+    .catch(() => {});
+
+  recordBlock(rule.pattern, url);
 });
 
 async function recordBlock(pattern, url) {
@@ -139,5 +162,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 chrome.action.onClicked.addListener(() => {
-  chrome.runtime.openOptionsPage();
+  const fallback = () =>
+    chrome.tabs.create({ url: chrome.runtime.getURL("options.html") });
+  try {
+    chrome.runtime.openOptionsPage(() => {
+      if (chrome.runtime.lastError) fallback();
+    });
+  } catch (e) {
+    fallback();
+  }
 });
