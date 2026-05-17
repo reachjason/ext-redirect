@@ -18,6 +18,8 @@ const DEFAULTS = {
   message: "Get back to work.",
   focus: "",
   delaySeconds: 10,
+  flashAfterMinutes: 15,
+  reflashEveryMinutes: 15,
   rules: DEFAULT_RULES
 };
 
@@ -147,7 +149,118 @@ async function recordBlock(pattern, url) {
   }
 }
 
-chrome.tabs.onRemoved.addListener((tabId) => graceUntil.delete(tabId));
+// ---- Time-on-site flash reminder ----
+
+let active = null; // { tabId, since, pattern }
+const tabAccumMs = new Map(); // tabId -> ms accumulated on matched URLs
+const tabLastFlashAtMs = new Map(); // tabId -> cumulative ms at last flash
+
+function finalizeActive() {
+  if (!active) return;
+  const delta = Date.now() - active.since;
+  tabAccumMs.set(active.tabId, (tabAccumMs.get(active.tabId) || 0) + delta);
+  active = null;
+}
+
+async function reevaluateActive() {
+  finalizeActive();
+  let win;
+  try {
+    win = await chrome.windows.getLastFocused({ populate: false });
+  } catch {
+    return;
+  }
+  if (!win || !win.focused) return;
+  const tabs = await chrome.tabs.query({ active: true, windowId: win.id });
+  const tab = tabs[0];
+  if (!tab || !tab.url || !/^https?:/i.test(tab.url)) return;
+  const rule = findMatch(tab.url);
+  if (!rule) {
+    tabAccumMs.delete(tab.id);
+    tabLastFlashAtMs.delete(tab.id);
+    return;
+  }
+  active = { tabId: tab.id, since: Date.now(), pattern: rule.pattern };
+}
+
+async function checkThreshold() {
+  const thresholdMs = (settings.flashAfterMinutes || 0) * 60 * 1000;
+  if (thresholdMs <= 0 || !active) return;
+
+  const totalMs =
+    (tabAccumMs.get(active.tabId) || 0) + (Date.now() - active.since);
+  const lastAt = tabLastFlashAtMs.get(active.tabId) || 0;
+  const reflashMs = (settings.reflashEveryMinutes || 0) * 60 * 1000;
+
+  let shouldFlash = false;
+  if (lastAt === 0 && totalMs >= thresholdMs) shouldFlash = true;
+  else if (lastAt > 0 && reflashMs > 0 && totalMs - lastAt >= reflashMs)
+    shouldFlash = true;
+
+  if (shouldFlash) {
+    tabLastFlashAtMs.set(active.tabId, totalMs);
+    flashTab(active.tabId, settings.message || "Get back to work.");
+  }
+}
+
+function flashTab(tabId, message) {
+  chrome.scripting
+    .executeScript({
+      target: { tabId },
+      func: flashOverlay,
+      args: [message]
+    })
+    .catch(() => {});
+}
+
+// Runs in the page context.
+function flashOverlay(message) {
+  const id = "__gbtw_flash__";
+  if (document.getElementById(id)) return;
+  const div = document.createElement("div");
+  div.id = id;
+  div.style.cssText = [
+    "position:fixed",
+    "inset:0",
+    "z-index:2147483647",
+    "background:rgba(15,17,21,0.93)",
+    "color:#fff",
+    "display:flex",
+    "align-items:center",
+    "justify-content:center",
+    "text-align:center",
+    "padding:2rem",
+    'font:700 clamp(2rem,6vw,4rem)/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+    "opacity:0",
+    "transition:opacity 0.4s ease",
+    "pointer-events:none"
+  ].join(";");
+  div.textContent = message;
+  (document.body || document.documentElement).appendChild(div);
+  requestAnimationFrame(() => (div.style.opacity = "1"));
+  setTimeout(() => {
+    div.style.opacity = "0";
+    setTimeout(() => div.remove(), 600);
+  }, 3500);
+}
+
+chrome.alarms.create("flash-check", { periodInMinutes: 0.5 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "flash-check") checkThreshold();
+});
+
+chrome.tabs.onActivated.addListener(() => reevaluateActive());
+chrome.tabs.onUpdated.addListener((_tabId, change) => {
+  if (change.url || change.status === "complete") reevaluateActive();
+});
+chrome.windows.onFocusChanged.addListener(() => reevaluateActive());
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  graceUntil.delete(tabId);
+  tabAccumMs.delete(tabId);
+  tabLastFlashAtMs.delete(tabId);
+  if (active && active.tabId === tabId) active = null;
+});
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === "grant-grace" && sender.tab) {

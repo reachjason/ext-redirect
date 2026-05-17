@@ -18,6 +18,8 @@ const DEFAULTS = {
   message: "Get back to work.",
   focus: "",
   delaySeconds: 10,
+  flashAfterMinutes: 15,
+  reflashEveryMinutes: 15,
   rules: DEFAULT_RULES
 };
 
@@ -89,6 +91,8 @@ async function load() {
   $("message").value = s.message;
   $("focus").value = s.focus;
   $("delaySeconds").value = s.delaySeconds;
+  $("flashAfterMinutes").value = s.flashAfterMinutes;
+  $("reflashEveryMinutes").value = s.reflashEveryMinutes;
   tbody.innerHTML = "";
   if (!s.rules.length) {
     addRow("", "", "redirect");
@@ -112,6 +116,11 @@ async function save() {
     message: $("message").value || DEFAULTS.message,
     focus: $("focus").value,
     delaySeconds: Math.max(0, Number($("delaySeconds").value) || 0),
+    flashAfterMinutes: Math.max(0, Number($("flashAfterMinutes").value) || 0),
+    reflashEveryMinutes: Math.max(
+      0,
+      Number($("reflashEveryMinutes").value) || 0
+    ),
     rules
   };
 

@@ -3,7 +3,7 @@
   "name": "Get Back To Work",
   "version": "1.0.0",
   "description": "Redirects distraction sites to a reminder page so you stay focused.",
-  "permissions": ["webNavigation", "storage", "tabs", "scripting"],
+  "permissions": ["webNavigation", "storage", "tabs", "scripting", "alarms"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
