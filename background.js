@@ -86,8 +86,20 @@ function findMatch(url) {
   return null;
 }
 
-const GRAYSCALE_CSS =
-  "html{filter:grayscale(1) !important;-webkit-filter:grayscale(1) !important;}";
+function scheduleGrayscale(delaySeconds) {
+  const STYLE_ID = "__gbtw_grayscale__";
+  if (document.getElementById(STYLE_ID)) return;
+  const apply = () => {
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent =
+      "html{filter:grayscale(1) !important;-webkit-filter:grayscale(1) !important;}";
+    (document.head || document.documentElement).appendChild(style);
+  };
+  if (delaySeconds > 0) setTimeout(apply, delaySeconds * 1000);
+  else apply();
+}
 
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
   if (details.frameId !== 0) return;
@@ -122,16 +134,29 @@ chrome.webNavigation.onCommitted.addListener((details) => {
 
   const rule = findMatch(url);
   if (!rule) return;
-  if (rule.action !== "grayscale") return;
 
-  chrome.scripting
-    .insertCSS({
-      target: { tabId: details.tabId },
-      css: GRAYSCALE_CSS
-    })
-    .catch(() => {});
+  const inGrace = (graceUntil.get(details.tabId) || 0) > Date.now();
 
-  recordBlock(rule.pattern, url);
+  if (rule.action === "grayscale") {
+    chrome.scripting
+      .executeScript({
+        target: { tabId: details.tabId },
+        func: scheduleGrayscale,
+        args: [Math.max(0, Number(settings.delaySeconds) || 0)]
+      })
+      .catch(() => {});
+    recordBlock(rule.pattern, url);
+  } else if (inGrace) {
+    // User clicked "Continue anyway" on the reminder page — let them through
+    // but render the site in grayscale for the duration of the grace window.
+    chrome.scripting
+      .executeScript({
+        target: { tabId: details.tabId },
+        func: scheduleGrayscale,
+        args: [0]
+      })
+      .catch(() => {});
+  }
 });
 
 async function recordBlock(pattern, url) {
