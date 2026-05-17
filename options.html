@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Get Back To Work — Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Get Back To Work</h1>
+
+      <section>
+        <h2>Reminder</h2>
+        <label>
+          Message
+          <input id="message" type="text" placeholder="Get back to work." />
+        </label>
+        <label>
+          Today's focus (optional)
+          <textarea id="focus" rows="3" placeholder="Ship the auth refactor. No reddit until 5pm."></textarea>
+        </label>
+        <label>
+          Delay before "Continue anyway" is enabled (seconds)
+          <input id="delaySeconds" type="number" min="0" max="600" />
+        </label>
+      </section>
+
+      <section>
+        <h2>Blocked sites</h2>
+        <p class="hint">
+          Each rule uses a <a href="https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns" target="_blank">Chrome match pattern</a>.
+          Leave "Redirect to" blank to use the built-in reminder page.
+        </p>
+        <table id="rules">
+          <thead>
+            <tr>
+              <th>Pattern</th>
+              <th>Redirect to (optional URL)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <button id="add" type="button">+ Add rule</button>
+      </section>
+
+      <div class="actions">
+        <button id="save" type="button" class="primary">Save</button>
+        <span id="status"></span>
+      </div>
+
+      <section>
+        <h2>Block stats</h2>
+        <p class="hint">Counts of how many times each rule has redirected you, tracked locally.</p>
+        <table id="stats">
+          <thead>
+            <tr>
+              <th>Pattern</th>
+              <th>Count</th>
+              <th>Top hosts</th>
+              <th>Last blocked</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <button id="resetStats" type="button" class="danger">Reset stats</button>
+      </section>
+
+      <section class="examples">
+        <h2>Example patterns</h2>
+        <ul>
+          <li><code>*://*.reddit.com/*</code> — all of reddit, including subdomains</li>
+          <li><code>*://twitter.com/*</code> — twitter.com only</li>
+          <li><code>*://*.youtube.com/*</code> — all youtube</li>
+          <li><code>*://news.ycombinator.com/*</code> — HN</li>
+        </ul>
+      </section>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
