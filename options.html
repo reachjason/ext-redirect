@@ -53,6 +53,28 @@
         <button id="add" type="button">+ Add rule</button>
       </section>
 
+      <section>
+        <h2>Allow windows</h2>
+        <p class="hint">
+          Times of day (local) when matched sites are reachable. "Normal" =
+          full access, "Grayscale" = reachable but desaturated. A window may
+          cross midnight (e.g. 22:00–02:00). Most permissive wins on overlap.
+          The flash reminder still fires during allow windows.
+        </p>
+        <table id="windows">
+          <thead>
+            <tr>
+              <th>Start</th>
+              <th>End</th>
+              <th>Mode</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <button id="addWindow" type="button">+ Add window</button>
+      </section>
+
       <div class="actions">
         <button id="save" type="button" class="primary">Save</button>
         <span id="status"></span>

@@ -20,6 +20,7 @@ const DEFAULTS = {
   delaySeconds: 10,
   flashAfterMinutes: 15,
   reflashEveryMinutes: 15,
+  allowWindows: [],
   rules: DEFAULT_RULES
 };
 
@@ -86,6 +87,38 @@ function findMatch(url) {
   return null;
 }
 
+function parseHM(str) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec((str || "").trim());
+  if (!m) return null;
+  const h = +m[1];
+  const mm = +m[2];
+  if (h > 23 || mm > 59) return null;
+  return h * 60 + mm;
+}
+
+// Returns "normal", "grayscale", or null based on the current local time.
+// "normal" (most permissive) wins over "grayscale" when windows overlap.
+function activeAllowMode() {
+  const wins = settings.allowWindows || [];
+  if (!wins.length) return null;
+  const now = new Date();
+  const mins = now.getHours() * 60 + now.getMinutes();
+  let best = null;
+  for (const w of wins) {
+    const s = parseHM(w.start);
+    const e = parseHM(w.end);
+    if (s == null || e == null || s === e) continue;
+    const inWin = s < e ? mins >= s && mins < e : mins >= s || mins < e;
+    if (!inWin) continue;
+    if (w.mode === "normal") return "normal";
+    best = "grayscale";
+  }
+  return best;
+}
+
+const GRAYSCALE_CSS =
+  "html{filter:grayscale(1) !important;-webkit-filter:grayscale(1) !important;}";
+
 function scheduleGrayscale(delaySeconds) {
   const STYLE_ID = "__gbtw_grayscale__";
   if (document.getElementById(STYLE_ID)) return;
@@ -114,6 +147,9 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
   if (!rule) return;
   if ((rule.action || "redirect") !== "redirect") return;
 
+  // Allow window active: skip the redirect. onCommitted handles grayscale.
+  if (activeAllowMode() !== null) return;
+
   let target;
   if (rule.redirectTo && rule.redirectTo.trim()) {
     target = rule.redirectTo.trim();
@@ -135,6 +171,11 @@ chrome.webNavigation.onCommitted.addListener((details) => {
   const rule = findMatch(url);
   if (!rule) return;
 
+  const allow = activeAllowMode();
+
+  // Normal allow window: fully accessible, no filter at all.
+  if (allow === "normal") return;
+
   const inGrace = (graceUntil.get(details.tabId) || 0) > Date.now();
 
   if (rule.action === "grayscale") {
@@ -146,14 +187,14 @@ chrome.webNavigation.onCommitted.addListener((details) => {
       })
       .catch(() => {});
     recordBlock(rule.pattern, url);
-  } else if (inGrace) {
-    // User clicked "Continue anyway" on the reminder page — let them through
-    // but render the site in grayscale for the duration of the grace window.
+  } else if (allow === "grayscale" || inGrace) {
+    // Either a grayscale allow window is active, or the user clicked
+    // "Continue anyway" — let them through but render the site grayscale.
+    // insertCSS applies before paint so there's no flash of color first.
     chrome.scripting
-      .executeScript({
+      .insertCSS({
         target: { tabId: details.tabId },
-        func: scheduleGrayscale,
-        args: [0]
+        css: GRAYSCALE_CSS
       })
       .catch(() => {});
   }
@@ -175,20 +216,15 @@ async function recordBlock(pattern, url) {
 }
 
 // ---- Time-on-site flash reminder ----
+//
+// Tick-based: every TICK_SECONDS, if the focused tab is on a matched URL,
+// add TICK_SECONDS to that tab's accumulator (stored in chrome.storage.session
+// so it survives service-worker sleeps). When the accumulator crosses the
+// threshold, flash the page.
 
-let active = null; // { tabId, since, pattern }
-const tabAccumMs = new Map(); // tabId -> ms accumulated on matched URLs
-const tabLastFlashAtMs = new Map(); // tabId -> cumulative ms at last flash
+const TICK_SECONDS = 30;
 
-function finalizeActive() {
-  if (!active) return;
-  const delta = Date.now() - active.since;
-  tabAccumMs.set(active.tabId, (tabAccumMs.get(active.tabId) || 0) + delta);
-  active = null;
-}
-
-async function reevaluateActive() {
-  finalizeActive();
+async function tick() {
   let win;
   try {
     win = await chrome.windows.getLastFocused({ populate: false });
@@ -196,36 +232,49 @@ async function reevaluateActive() {
     return;
   }
   if (!win || !win.focused) return;
+
   const tabs = await chrome.tabs.query({ active: true, windowId: win.id });
   const tab = tabs[0];
   if (!tab || !tab.url || !/^https?:/i.test(tab.url)) return;
   const rule = findMatch(tab.url);
+
+  const sess = await chrome.storage.session.get({ accum: {}, lastFlash: {} });
+  const accum = sess.accum;
+  const lastFlash = sess.lastFlash;
+  const key = String(tab.id);
+
   if (!rule) {
-    tabAccumMs.delete(tab.id);
-    tabLastFlashAtMs.delete(tab.id);
+    if (accum[key] || lastFlash[key]) {
+      delete accum[key];
+      delete lastFlash[key];
+      await chrome.storage.session.set({ accum, lastFlash });
+    }
     return;
   }
-  active = { tabId: tab.id, since: Date.now(), pattern: rule.pattern };
-}
 
-async function checkThreshold() {
-  const thresholdMs = (settings.flashAfterMinutes || 0) * 60 * 1000;
-  if (thresholdMs <= 0 || !active) return;
-
-  const totalMs =
-    (tabAccumMs.get(active.tabId) || 0) + (Date.now() - active.since);
-  const lastAt = tabLastFlashAtMs.get(active.tabId) || 0;
-  const reflashMs = (settings.reflashEveryMinutes || 0) * 60 * 1000;
+  accum[key] = (accum[key] || 0) + TICK_SECONDS;
+  const totalSec = accum[key];
+  const thresholdSec = (settings.flashAfterMinutes || 0) * 60;
+  const reflashSec = (settings.reflashEveryMinutes || 0) * 60;
+  const lastFlashSec = lastFlash[key] || 0;
 
   let shouldFlash = false;
-  if (lastAt === 0 && totalMs >= thresholdMs) shouldFlash = true;
-  else if (lastAt > 0 && reflashMs > 0 && totalMs - lastAt >= reflashMs)
-    shouldFlash = true;
+  if (thresholdSec > 0) {
+    if (lastFlashSec === 0 && totalSec >= thresholdSec) shouldFlash = true;
+    else if (
+      lastFlashSec > 0 &&
+      reflashSec > 0 &&
+      totalSec - lastFlashSec >= reflashSec
+    )
+      shouldFlash = true;
+  }
 
   if (shouldFlash) {
-    tabLastFlashAtMs.set(active.tabId, totalMs);
-    flashTab(active.tabId, settings.message || "Get back to work.");
+    lastFlash[key] = totalSec;
+    flashTab(tab.id, settings.message || "Get back to work.");
   }
+
+  await chrome.storage.session.set({ accum, lastFlash });
 }
 
 function flashTab(tabId, message) {
@@ -269,22 +318,22 @@ function flashOverlay(message) {
   }, 3500);
 }
 
-chrome.alarms.create("flash-check", { periodInMinutes: 0.5 });
+chrome.alarms.create("flash-check", { periodInMinutes: TICK_SECONDS / 60 });
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "flash-check") checkThreshold();
+  if (alarm.name === "flash-check") tick();
 });
 
-chrome.tabs.onActivated.addListener(() => reevaluateActive());
-chrome.tabs.onUpdated.addListener((_tabId, change) => {
-  if (change.url || change.status === "complete") reevaluateActive();
-});
-chrome.windows.onFocusChanged.addListener(() => reevaluateActive());
-
-chrome.tabs.onRemoved.addListener((tabId) => {
+chrome.tabs.onRemoved.addListener(async (tabId) => {
   graceUntil.delete(tabId);
-  tabAccumMs.delete(tabId);
-  tabLastFlashAtMs.delete(tabId);
-  if (active && active.tabId === tabId) active = null;
+  try {
+    const sess = await chrome.storage.session.get({ accum: {}, lastFlash: {} });
+    const key = String(tabId);
+    if (sess.accum[key] || sess.lastFlash[key]) {
+      delete sess.accum[key];
+      delete sess.lastFlash[key];
+      await chrome.storage.session.set(sess);
+    }
+  } catch {}
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

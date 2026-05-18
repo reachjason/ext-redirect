@@ -20,11 +20,13 @@ const DEFAULTS = {
   delaySeconds: 10,
   flashAfterMinutes: 15,
   reflashEveryMinutes: 15,
+  allowWindows: [],
   rules: DEFAULT_RULES
 };
 
 const $ = (id) => document.getElementById(id);
 const tbody = document.querySelector("#rules tbody");
+const winBody = document.querySelector("#windows tbody");
 
 function addRow(pattern = "", redirectTo = "", action = "redirect") {
   const tr = document.createElement("tr");
@@ -86,6 +88,51 @@ function addRow(pattern = "", redirectTo = "", action = "redirect") {
   tbody.appendChild(tr);
 }
 
+function addWindowRow(start = "12:00", end = "13:00", mode = "normal") {
+  const tr = document.createElement("tr");
+
+  const tdStart = document.createElement("td");
+  const inStart = document.createElement("input");
+  inStart.type = "time";
+  inStart.className = "winStart";
+  inStart.value = start;
+  tdStart.appendChild(inStart);
+
+  const tdEnd = document.createElement("td");
+  const inEnd = document.createElement("input");
+  inEnd.type = "time";
+  inEnd.className = "winEnd";
+  inEnd.value = end;
+  tdEnd.appendChild(inEnd);
+
+  const tdMode = document.createElement("td");
+  const selMode = document.createElement("select");
+  selMode.className = "winMode";
+  for (const [val, label] of [
+    ["normal", "Normal (full access)"],
+    ["grayscale", "Grayscale"]
+  ]) {
+    const opt = document.createElement("option");
+    opt.value = val;
+    opt.textContent = label;
+    if (val === mode) opt.selected = true;
+    selMode.appendChild(opt);
+  }
+  tdMode.appendChild(selMode);
+
+  const tdDel = document.createElement("td");
+  tdDel.className = "del";
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "danger";
+  del.textContent = "Delete";
+  del.addEventListener("click", () => tr.remove());
+  tdDel.appendChild(del);
+
+  tr.append(tdStart, tdEnd, tdMode, tdDel);
+  winBody.appendChild(tr);
+}
+
 async function load() {
   const s = await chrome.storage.sync.get(DEFAULTS);
   $("message").value = s.message;
@@ -100,6 +147,9 @@ async function load() {
     for (const r of s.rules)
       addRow(r.pattern || "", r.redirectTo || "", r.action || "redirect");
   }
+  winBody.innerHTML = "";
+  for (const w of s.allowWindows || [])
+    addWindowRow(w.start || "", w.end || "", w.mode || "normal");
 }
 
 async function save() {
@@ -112,6 +162,15 @@ async function save() {
     rules.push({ pattern, action, redirectTo });
   }
 
+  const allowWindows = [];
+  for (const tr of winBody.querySelectorAll("tr")) {
+    const start = tr.querySelector(".winStart").value;
+    const end = tr.querySelector(".winEnd").value;
+    const mode = tr.querySelector(".winMode").value;
+    if (!start || !end) continue;
+    allowWindows.push({ start, end, mode });
+  }
+
   const settings = {
     message: $("message").value || DEFAULTS.message,
     focus: $("focus").value,
@@ -121,6 +180,7 @@ async function save() {
       0,
       Number($("reflashEveryMinutes").value) || 0
     ),
+    allowWindows,
     rules
   };
 
@@ -193,6 +253,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 $("add").addEventListener("click", () => addRow());
+$("addWindow").addEventListener("click", () => addWindowRow());
 $("save").addEventListener("click", save);
 
 load();

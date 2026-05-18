@@ -8,6 +8,8 @@ A Chrome extension that redirects you from distraction sites to a "get back to w
 - Built-in reminder page with a customizable message and "today's focus" note
 - Per-rule custom redirect URL (e.g. send yourself to your Notion task list instead of the built-in page)
 - "Continue anyway" button on the reminder page with a configurable delay (default 10s) that grants a 60-second grace window for that tab
+- Allow windows: times of day when matched sites are reachable, either normally or in grayscale
+- Time-on-site flash reminder after a configurable threshold
 - Settings sync across Chrome instances signed into the same Google account (via `chrome.storage.sync`)
 
 ## Install (unpacked, takes ~30 seconds)
@@ -44,6 +46,17 @@ Click **Save**. Changes take effect on the next navigation.
 ## How "Continue anyway" works
 
 When you hit a blocked site, the tab redirects to the reminder page. The button is disabled and counts down (10s by default). After it enables and you click it, the extension grants a 60-second grace window for that tab so you can use the site without being immediately re-blocked. Open a new tab to the same site after the grace window and it'll redirect again.
+
+## Allow windows
+
+In settings, **Allow windows** lets you carve out times of day (your local time) when matched sites are reachable:
+
+- **Normal** — full access, no redirect and no grayscale.
+- **Grayscale** — reachable but desaturated.
+
+Each window is a start and end time and applies every day. A window may cross midnight (e.g. `22:00`–`02:00`). If windows overlap, the most permissive mode wins (Normal beats Grayscale). The time-on-site flash reminder still fires during allow windows.
+
+Windows are evaluated when you navigate. If a window opens or closes while you're already sitting on a site, the change takes effect on your next navigation or page reload — open tabs aren't retro-actively redirected or recolored.
 
 ## Files
 
