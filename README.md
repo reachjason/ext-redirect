@@ -37,8 +37,9 @@ The settings page has these sections:
 
 - **Message** — the big headline shown on the built-in reminder page.
 - **Today's focus** — an optional note shown under the message.
-- **Delay before "Continue anyway" is enabled (seconds)** — default 10. This same delay also applies before a *Grayscale*-action rule desaturates a freshly loaded page.
+- **Delay before "Continue anyway" is enabled (seconds)** — default 10.
 - **Delay during allow windows (seconds)** — default 5. Used instead of the delay above when an [allow window](#allow-windows) is active, so allowed times get a shorter gate rather than no gate.
+- **Delay before Grayscale-action rules desaturate (seconds)** — default 10. How long a *Grayscale*-action rule shows the page in color before the filter applies. `0` desaturates immediately. (The continue-anyway and allow-window grayscale always apply pre-paint and ignore this.)
 - **Flash reminder after N minutes on a matched site** — default 15, `0` disables. See [Time-on-site flash](#time-on-site-flash).
 - **Re-flash every N minutes thereafter** — default 15, `0` = flash only once.
 
@@ -142,7 +143,7 @@ icons/            # toolbar icons + generate.py that produces them
 
 - **Nothing happens when I visit a blocked site.** Reload the extension at `chrome://extensions` (click the refresh icon on its card). Service workers can go to sleep; reloading wakes everything up. Also re-check your pattern — `reddit.com` alone is not a valid match pattern; it needs a scheme and path, e.g. `*://*.reddit.com/*`. (Note: an active **allow window** no longer suppresses the page — it just shortens the countdown — so that won't make "nothing" happen.)
 - **It blocks too aggressively / not enough.** Tweak your patterns. `*://*.example.com/*` covers `example.com` and all subdomains; `*://example.com/*` is exact host only.
-- **The grayscale flashes color briefly first.** Expected for *Grayscale*-action rules (the filter applies after the configured delay). The continue-anyway and allow-window grayscale apply before paint, so those shouldn't flash.
+- **The grayscale flashes color briefly first.** Expected for *Grayscale*-action rules — the filter applies after **Delay before Grayscale-action rules desaturate** (set it to `0` to desaturate immediately). The continue-anyway and allow-window grayscale apply before paint, so those shouldn't flash.
 - **The flash reminder didn't fire.** It counts only *active* (focused-tab) time and checks every 30s, so it can lag the threshold by up to ~30s. Make sure "Flash after" isn't `0`. For a quick test, set it to `1` minute.
 - **I'm stuck in focus mode.** Wait for the timer, use the popup's Stop → confirm flow, or (last resort) disable the extension at `chrome://extensions`. Quitting Chrome also ends it.
 - **I want to disable it temporarily.** Toggle the extension off at `chrome://extensions`, or remove all rules and hit Save. (A wide **allow window** only shortens the gate now — it no longer grants free access.)

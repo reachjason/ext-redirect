@@ -19,6 +19,7 @@ const DEFAULTS = {
   focus: "",
   delaySeconds: 10,
   allowDelaySeconds: 5,
+  grayscaleDelaySeconds: 10,
   flashAfterMinutes: 15,
   reflashEveryMinutes: 15,
   reminderMessage: "Sit up straight. Unclench your jaw. Drink some water.",
@@ -199,6 +200,7 @@ async function load() {
   $("focus").value = s.focus;
   $("delaySeconds").value = s.delaySeconds;
   $("allowDelaySeconds").value = s.allowDelaySeconds;
+  $("grayscaleDelaySeconds").value = s.grayscaleDelaySeconds;
   $("flashAfterMinutes").value = s.flashAfterMinutes;
   $("reflashEveryMinutes").value = s.reflashEveryMinutes;
   $("reminderMessage").value = s.reminderMessage || "";
@@ -245,6 +247,10 @@ async function save() {
     focus: $("focus").value,
     delaySeconds: Math.max(0, Number($("delaySeconds").value) || 0),
     allowDelaySeconds: Math.max(0, Number($("allowDelaySeconds").value) || 0),
+    grayscaleDelaySeconds: Math.max(
+      0,
+      Number($("grayscaleDelaySeconds").value) || 0
+    ),
     flashAfterMinutes: Math.max(0, Number($("flashAfterMinutes").value) || 0),
     reflashEveryMinutes: Math.max(
       0,

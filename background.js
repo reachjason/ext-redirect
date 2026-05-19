@@ -19,6 +19,7 @@ const DEFAULTS = {
   focus: "",
   delaySeconds: 10,
   allowDelaySeconds: 5,
+  grayscaleDelaySeconds: 10,
   flashAfterMinutes: 15,
   reflashEveryMinutes: 15,
   reminderMessage: "Sit up straight. Unclench your jaw. Drink some water.",
@@ -222,7 +223,7 @@ chrome.webNavigation.onCommitted.addListener((details) => {
       .executeScript({
         target: { tabId: details.tabId },
         func: scheduleGrayscale,
-        args: [Math.max(0, Number(settings.delaySeconds) || 0)]
+        args: [Math.max(0, Number(settings.grayscaleDelaySeconds) || 0)]
       })
       .catch(() => {});
     recordBlock(rule.pattern, url);
