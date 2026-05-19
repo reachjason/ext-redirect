@@ -417,7 +417,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 $("add").addEventListener("click", () => addRow());
 $("addWindow").addEventListener("click", () => addWindowRow());
-armConfirm($("save"), "Save", "Confirm save?", save);
+$("save").addEventListener("click", save);
 
 load();
 loadStats();
