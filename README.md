@@ -1,6 +1,6 @@
 # Get Back To Work
 
-A Chrome extension that keeps you off distraction sites. When you visit a matched site it either redirects you to a "get back to work" page (or any URL you choose) or desaturates the page to grayscale. It also nudges you with a periodic full-screen reminder if you linger, and lets you schedule times of day when sites are allowed.
+A Chrome extension that keeps you off distraction sites. When you visit a matched site it either redirects you to a "get back to work" page (or any URL you choose) or desaturates the page to grayscale. It also nudges you with a periodic full-screen reminder if you linger, and lets you schedule times of day when sites are allowed. On the reminder page you can jot *why* you wanted to go there and batch it for later instead of acting on the impulse.
 
 ## Features
 
@@ -8,7 +8,9 @@ A Chrome extension that keeps you off distraction sites. When you visit a matche
 - **Per-rule action:** *Redirect* (to the built-in reminder page or a custom URL) or *Grayscale* (page loads but is desaturated)
 - **Built-in reminder page** with a customizable message and "today's focus" note
 - **"Continue anyway"** button with a configurable countdown (default 10s); after clicking, the site loads in grayscale for a 60-second grace window
-- **Allow windows:** times of day when matched sites are reachable — fully (*normal*) or *grayscale*
+- **Keyboard-first reminder page:** the note box is auto-focused; **Enter** saves a note, **1** = Continue anyway, **2** = Go to your redirect URL
+- **Batch your distractions:** jot *why* you wanted the site on the reminder page, save it, and review the backlog later in Settings
+- **Allow windows:** times of day when matched sites use a shorter, separately configurable delay before "Continue anyway" — then load fully (*normal*) or *grayscale*
 - **Time-on-site flash:** a full-screen reminder flashes after you've spent a configurable amount of active time on a matched site, repeating on an interval
 - **Block stats:** local per-rule counts of how often each site was caught, with top hosts and last-seen time
 - **Periodic reminder:** a configurable wellbeing flash (posture, water, breaks) every N hours on whatever you're looking at
@@ -36,6 +38,7 @@ The settings page has these sections:
 - **Message** — the big headline shown on the built-in reminder page.
 - **Today's focus** — an optional note shown under the message.
 - **Delay before "Continue anyway" is enabled (seconds)** — default 10. This same delay also applies before a *Grayscale*-action rule desaturates a freshly loaded page.
+- **Delay during allow windows (seconds)** — default 5. Used instead of the delay above when an [allow window](#allow-windows) is active, so allowed times get a shorter gate rather than no gate.
 - **Flash reminder after N minutes on a matched site** — default 15, `0` disables. See [Time-on-site flash](#time-on-site-flash).
 - **Re-flash every N minutes thereafter** — default 15, `0` = flash only once.
 
@@ -72,9 +75,13 @@ See [Allow windows](#allow-windows) below.
 
 ### Block stats
 
-A read-only table of how many times each rule has caught you, the top hosts within each, and when it last fired. Tracked locally only. Use **Reset stats** to clear.
+A read-only table of how many times each rule has caught you, the top hosts within each, and when it last fired. Tracked locally only. **Reset stats** clears it (two-click confirm).
 
-Deleting a rule or window requires a second click to confirm (the button changes to "Confirm?" for 4 seconds). Rows are only persisted when you hit **Save**.
+### Batched distractions
+
+Whatever you typed into the note box on the reminder page lands here: a sortable table of **When / Site / Note**. Default sort is by site (click a header to re-sort, click again to flip direction). Delete a single row (two-click confirm) or **Clear all** (two-click confirm). The point is to capture the impulse — *"twitter.com: reply to Alex"* — without acting on it now, then work the batch deliberately later.
+
+Deleting a rule or window requires a second click to confirm (the button changes to "Confirm?" for 4 seconds). Rules and windows are only persisted when you hit **Save**; stats and batched notes are stored immediately.
 
 Click **Save**. Changes take effect on the next navigation. (Block stats and the flash timers update live.)
 
@@ -85,18 +92,22 @@ When you hit a *Redirect* site, the tab goes to the built-in Get Back To Work pa
 - **Continue anyway** — grants a 60-second grace window and reloads the original site **in grayscale**: accessible, but visibly unrewarding. When the grace expires, the next navigation sends you back here.
 - **Go to &lt;host&gt;** (only if the rule has a "Redirect to" URL) — takes you to that productive destination instead.
 
+The page is keyboard-first: the note box is focused on arrival, **Enter** saves a note, and once the timer elapses **1** triggers Continue anyway and **2** triggers Go to … (digits stay literal while you're typing a non-empty note, so numeric notes work). If you have [allow windows](#allow-windows) configured, a line shows the next one — *"Can this wait until 18:00? (in 2h 15m)"* — so deferring is the easy option.
+
+The **note box** ("Save for later") writes whatever you type to the [Batched distractions](#batched-distractions) list and deliberately keeps you on this page — the goal is to record the urge and move on, not to continue.
+
 ## Time-on-site flash
 
 For sites you can stay on (grayscale-action rules, or during the grace window), the extension tracks how much *active* time you spend there — only counting when that tab is focused. Every 30 seconds it checks the focused tab; once your cumulative time on a matched site crosses the threshold, a full-screen reminder fades in for a few seconds and then fades out, leaving your page and scroll position intact. If "re-flash" is set, it repeats on that interval while you remain. The counter is per tab and persists across the service worker sleeping; it resets when the tab navigates away from a matched site or closes.
 
 ## Allow windows
 
-In settings, **Allow windows** lets you carve out times of day (your local time) when matched sites are reachable:
+In settings, **Allow windows** lets you carve out times of day (your local time) when matched sites are *easier* to reach — not free. During an allow window a matched site still goes to the Get Back To Work page, but the countdown uses the shorter **Delay during allow windows** (default 5s) instead of the normal delay. After you push through, the window's **mode** decides how the site loads:
 
-- **Normal** — full access, no redirect and no grayscale.
-- **Grayscale** — reachable but desaturated.
+- **Normal** — loads in full color for the 60-second grace window.
+- **Grayscale** — loads desaturated.
 
-Each window is a start and end time and applies every day. A window may cross midnight (e.g. `22:00`–`02:00`). If windows overlap, the most permissive mode wins (Normal beats Grayscale). The time-on-site flash reminder still fires during allow windows.
+Each window is a start and end time and applies every day. A window may cross midnight (e.g. `22:00`–`02:00`). If windows overlap, the most permissive mode wins (Normal beats Grayscale). The time-on-site flash still accumulates across the short redirect cycle, so it fires if you rack up a lot of cumulative time even during allowed periods.
 
 Windows are evaluated when you navigate. If a window opens or closes while you're already sitting on a site, the change takes effect on your next navigation or page reload — open tabs aren't retro-actively redirected or recolored.
 
@@ -129,12 +140,12 @@ icons/            # toolbar icons + generate.py that produces them
 
 ## Troubleshooting
 
-- **Nothing happens when I visit a blocked site.** Reload the extension at `chrome://extensions` (click the refresh icon on its card). Service workers can go to sleep; reloading wakes everything up. Also re-check your pattern — `reddit.com` alone is not a valid match pattern; it needs a scheme and path, e.g. `*://*.reddit.com/*`. Finally, check you don't have an active **allow window** covering the current time.
+- **Nothing happens when I visit a blocked site.** Reload the extension at `chrome://extensions` (click the refresh icon on its card). Service workers can go to sleep; reloading wakes everything up. Also re-check your pattern — `reddit.com` alone is not a valid match pattern; it needs a scheme and path, e.g. `*://*.reddit.com/*`. (Note: an active **allow window** no longer suppresses the page — it just shortens the countdown — so that won't make "nothing" happen.)
 - **It blocks too aggressively / not enough.** Tweak your patterns. `*://*.example.com/*` covers `example.com` and all subdomains; `*://example.com/*` is exact host only.
 - **The grayscale flashes color briefly first.** Expected for *Grayscale*-action rules (the filter applies after the configured delay). The continue-anyway and allow-window grayscale apply before paint, so those shouldn't flash.
 - **The flash reminder didn't fire.** It counts only *active* (focused-tab) time and checks every 30s, so it can lag the threshold by up to ~30s. Make sure "Flash after" isn't `0`. For a quick test, set it to `1` minute.
 - **I'm stuck in focus mode.** Wait for the timer, use the popup's Stop → confirm flow, or (last resort) disable the extension at `chrome://extensions`. Quitting Chrome also ends it.
-- **I want to disable it temporarily.** Toggle the extension off at `chrome://extensions`, add a wide **allow window** in *Normal* mode, or remove all rules and hit Save.
+- **I want to disable it temporarily.** Toggle the extension off at `chrome://extensions`, or remove all rules and hit Save. (A wide **allow window** only shortens the gate now — it no longer grants free access.)
 
 ## Privacy
 

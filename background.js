@@ -18,6 +18,7 @@ const DEFAULTS = {
   message: "Get back to work.",
   focus: "",
   delaySeconds: 10,
+  allowDelaySeconds: 5,
   flashAfterMinutes: 15,
   reflashEveryMinutes: 15,
   reminderMessage: "Sit up straight. Unclench your jaw. Drink some water.",
@@ -184,12 +185,16 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   if (!rule) return;
   if ((rule.action || "redirect") !== "redirect") return;
 
-  // Allow window active: skip the redirect. onCommitted handles grayscale.
-  if (activeAllowMode() !== null) return;
+  // Allow window active: still route through the timer page, but with the
+  // shorter, separately-configurable allow-window delay.
+  const inAllow = activeAllowMode() !== null;
+  const delay = inAllow
+    ? Math.max(0, Number(settings.allowDelaySeconds) || 0)
+    : Math.max(0, Number(settings.delaySeconds) || 0);
 
   const rt = rule.redirectTo && rule.redirectTo.trim();
   let target = chrome.runtime.getURL(
-    `blocked.html?from=${encodeURIComponent(url)}`
+    `blocked.html?from=${encodeURIComponent(url)}&delay=${delay}`
   );
   if (rt) target += `&to=${encodeURIComponent(rt)}`;
 

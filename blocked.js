@@ -1,6 +1,7 @@
 const params = new URLSearchParams(location.search);
 const from = params.get("from") || "";
 const to = params.get("to") || "";
+const delayParam = params.get("delay");
 document.getElementById("from").textContent = from;
 
 let fromHost = "";
@@ -14,6 +15,9 @@ const noteStatus = document.getElementById("noteStatus");
 if (fromHost) {
   noteInput.placeholder = `Why ${fromHost}? Save it for later (e.g. Follow Alex)`;
 }
+noteInput.focus();
+
+let buttonsReady = false;
 
 function saveNote() {
   const note = noteInput.value.trim();
@@ -61,7 +65,13 @@ chrome.runtime.sendMessage({ type: "get-settings" }, (resp) => {
   if (s.message) document.getElementById("message").textContent = s.message;
   if (s.focus) document.getElementById("focus").textContent = s.focus;
   setWaitPrompt(s.allowWindows);
-  const delay = Math.max(0, Number(s.delaySeconds) || 10);
+  const hasParam =
+    delayParam !== null &&
+    delayParam !== "" &&
+    Number.isFinite(Number(delayParam));
+  const delay = hasParam
+    ? Math.max(0, Number(delayParam))
+    : Math.max(0, Number(s.delaySeconds) || 10);
   startCountdown(delay);
 });
 
@@ -124,7 +134,7 @@ function startCountdown(seconds) {
 
 function enableButtons() {
   continueBtn.disabled = false;
-  continueBtn.textContent = "Continue anyway";
+  continueBtn.textContent = "Continue anyway  [1]";
   continueBtn.addEventListener("click", () => {
     if (!from) return;
     chrome.runtime.sendMessage({ type: "grant-grace", seconds: 60 }, () => {
@@ -134,7 +144,27 @@ function enableButtons() {
 
   if (to) {
     goBtn.disabled = false;
-    goBtn.textContent = goLabel;
+    goBtn.textContent = `${goLabel}  [2]`;
     goBtn.addEventListener("click", () => location.replace(to));
   }
+
+  buttonsReady = true;
 }
+
+// Keyboard shortcuts: 1 = Continue anyway, 2 = Go to <host>. Armed only
+// once the countdown finishes. While actively typing a non-empty note,
+// digits stay as text so notes can contain numbers.
+document.addEventListener("keydown", (e) => {
+  if (!buttonsReady) return;
+  if (e.key !== "1" && e.key !== "2") return;
+  if (document.activeElement === noteInput && noteInput.value.trim() !== "") {
+    return;
+  }
+  if (e.key === "1" && !continueBtn.disabled) {
+    e.preventDefault();
+    continueBtn.click();
+  } else if (e.key === "2" && to && !goBtn.disabled) {
+    e.preventDefault();
+    goBtn.click();
+  }
+});
