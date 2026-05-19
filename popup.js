@@ -63,7 +63,11 @@ $("start").addEventListener("click", () => {
 
 $("settings").addEventListener("click", (e) => {
   e.preventDefault();
-  chrome.runtime.openOptionsPage();
+  // openOptionsPage() from a popup is unreliable — the popup can close
+  // before Chrome processes it. tabs.create is robust and matches what
+  // options_ui open_in_tab would do anyway.
+  chrome.tabs.create({ url: chrome.runtime.getURL("options.html") });
+  window.close();
 });
 
 $("stop").addEventListener("click", () => {
