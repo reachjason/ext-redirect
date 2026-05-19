@@ -10,7 +10,10 @@
       <h1 id="message">Get back to work.</h1>
       <p id="focus" class="focus"></p>
       <p class="from">You tried to visit: <span id="from"></span></p>
-      <button id="continue" disabled>Continue anyway (<span id="count">10</span>s)</button>
+      <div class="buttons">
+        <button id="goRedirect" disabled hidden></button>
+        <button id="continue" disabled>Continue anyway (<span id="count">10</span>s)</button>
+      </div>
       <p class="settings-link"><a href="options.html" target="_blank">Edit settings</a></p>
     </main>
     <script src="blocked.js"></script>

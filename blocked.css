@@ -51,6 +51,21 @@ button:disabled {
 button:not(:disabled):hover {
   background: #232732;
 }
+.buttons {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+#goRedirect:not(:disabled) {
+  background: #f0c674;
+  color: #1a1d24;
+  border-color: #f0c674;
+  font-weight: 600;
+}
+#goRedirect:not(:disabled):hover {
+  background: #f3d089;
+}
 .settings-link {
   margin-top: 2rem;
   font-size: 0.875rem;

@@ -57,9 +57,9 @@ Add as many rules as you want. Each rule has:
   - `*://*.youtube.com/*` — all of YouTube
   - `*://news.ycombinator.com/*` — Hacker News
 - **Action**:
-  - **Redirect** — the tab is sent away (to the built-in page or your custom URL).
+  - **Redirect** — the tab is sent to the built-in **Get Back To Work** page with its countdown timer.
   - **Grayscale** — the page loads normally, then desaturates after the delay. "Redirect to" is ignored.
-- **Redirect to** — optional, only for *Redirect* rules. If filled, the tab goes there instead of the built-in reminder page. Examples:
+- **Redirect to** — optional, only for *Redirect* rules. If filled, the Get Back To Work page shows an extra **Go to &lt;host&gt;** button (gated by the same timer) that takes you there. If blank, you just get the Continue anyway button. Examples:
   - `https://www.notion.so/your-task-page`
   - A local file URL
   - Another tab in your todo app
@@ -80,7 +80,10 @@ Click **Save**. Changes take effect on the next navigation. (Block stats and the
 
 ## How "Continue anyway" works
 
-When you hit a *Redirect* site that uses the built-in page, the tab redirects to the reminder. The button is disabled and counts down (10s by default). After it enables and you click it, the extension grants a 60-second grace window for that tab and reloads the original site **in grayscale** — accessible, but visibly unrewarding. Once the grace window expires, the next navigation redirects you again.
+When you hit a *Redirect* site, the tab goes to the built-in Get Back To Work page. Its buttons are disabled and count down (10s by default). Once the timer elapses:
+
+- **Continue anyway** — grants a 60-second grace window and reloads the original site **in grayscale**: accessible, but visibly unrewarding. When the grace expires, the next navigation sends you back here.
+- **Go to &lt;host&gt;** (only if the rule has a "Redirect to" URL) — takes you to that productive destination instead.
 
 ## Time-on-site flash
 

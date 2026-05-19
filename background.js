@@ -187,14 +187,11 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   // Allow window active: skip the redirect. onCommitted handles grayscale.
   if (activeAllowMode() !== null) return;
 
-  let target;
-  if (rule.redirectTo && rule.redirectTo.trim()) {
-    target = rule.redirectTo.trim();
-  } else {
-    target = chrome.runtime.getURL(
-      `blocked.html?from=${encodeURIComponent(url)}`
-    );
-  }
+  const rt = rule.redirectTo && rule.redirectTo.trim();
+  let target = chrome.runtime.getURL(
+    `blocked.html?from=${encodeURIComponent(url)}`
+  );
+  if (rt) target += `&to=${encodeURIComponent(rt)}`;
 
   recordBlock(rule.pattern, url);
   chrome.tabs.update(details.tabId, { url: target });
