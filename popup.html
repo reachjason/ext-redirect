@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Idle state -->
+      <section id="idle">
+        <h1>Focus mode</h1>
+        <p class="sub">
+          Locks you to one tab and forces every other tab back to it until the
+          timer ends.
+        </p>
+        <label>
+          Focus URL
+          <input
+            id="focusUrl"
+            type="text"
+            placeholder="blank = built-in focus page"
+          />
+        </label>
+        <label>
+          Minutes
+          <input id="minutes" type="number" min="1" max="600" value="25" />
+        </label>
+        <button id="start" class="primary">Start focus mode</button>
+        <a id="settings" href="#">Settings</a>
+      </section>
+
+      <!-- Active state -->
+      <section id="active" hidden>
+        <h1>Focusing</h1>
+        <p class="timer" id="timer">--:--</p>
+        <button id="stop" class="danger">Stop focus mode</button>
+        <div id="confirmWrap" hidden>
+          <p class="sub">Are you sure? This defeats the point.</p>
+          <button id="confirm" class="danger" disabled>
+            Confirm stop (<span id="count">5</span>s)
+          </button>
+          <button id="cancel">Keep focusing</button>
+        </div>
+      </section>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -55,6 +55,7 @@ td input {
   font: inherit;
 }
 td.del { width: 1%; }
+td.on { width: 1%; text-align: center; }
 button {
   font: inherit;
   padding: 0.5rem 0.9rem;
@@ -73,6 +74,11 @@ button.primary:hover { background: #2a2f3a; }
 button.danger {
   color: #b91c1c;
   border-color: #f3c8c8;
+}
+button.danger.armed {
+  background: #b91c1c;
+  color: #fff;
+  border-color: #b91c1c;
 }
 .actions {
   display: flex;

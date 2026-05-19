@@ -20,7 +20,10 @@ const DEFAULTS = {
   delaySeconds: 10,
   flashAfterMinutes: 15,
   reflashEveryMinutes: 15,
+  reminderMessage: "Sit up straight. Unclench your jaw. Drink some water.",
+  reminderEveryHours: 0,
   allowWindows: [],
+  focusUrl: "",
   rules: DEFAULT_RULES
 };
 
@@ -69,6 +72,31 @@ async function loadSettings() {
   const stored = await chrome.storage.sync.get(DEFAULTS);
   settings = { ...DEFAULTS, ...stored };
   compiled = compileRules(settings.rules || []);
+  syncReminderAlarm();
+}
+
+function syncReminderAlarm() {
+  const hours = Number(settings.reminderEveryHours) || 0;
+  if (hours > 0) {
+    const period = Math.max(0.5, hours * 60); // minutes; Chrome floor ~0.5
+    chrome.alarms.create("periodic-reminder", { periodInMinutes: period });
+  } else {
+    chrome.alarms.clear("periodic-reminder");
+  }
+}
+
+async function flashAllWindows(message) {
+  let wins;
+  try {
+    wins = await chrome.windows.getAll({ populate: true });
+  } catch {
+    return;
+  }
+  for (const w of wins) {
+    const tab = (w.tabs || []).find((t) => t.active);
+    if (!tab || !tab.id || !tab.url || !/^https?:/i.test(tab.url)) continue;
+    flashTab(tab.id, message);
+  }
 }
 
 chrome.runtime.onInstalled.addListener(loadSettings);
@@ -82,6 +110,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 function findMatch(url) {
   for (const r of compiled) {
+    if (r.enabled === false) continue;
     if (r.regex.test(url)) return r;
   }
   return null;
@@ -134,9 +163,17 @@ function scheduleGrayscale(delaySeconds) {
   else apply();
 }
 
-chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   if (details.frameId !== 0) return;
   const url = details.url;
+
+  // Hardcore focus mode: any non-focus tab is forced to the focus URL.
+  const f = await getFocus();
+  if (f.active && details.tabId !== f.tabId && url !== f.url) {
+    chrome.tabs.update(details.tabId, { url: f.url }).catch(() => {});
+    return;
+  }
+
   if (!/^https?:/i.test(url)) return;
 
   const expires = graceUntil.get(details.tabId);
@@ -321,6 +358,11 @@ function flashOverlay(message) {
 chrome.alarms.create("flash-check", { periodInMinutes: TICK_SECONDS / 60 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "flash-check") tick();
+  if (alarm.name === "periodic-reminder") {
+    flashAllWindows(
+      settings.reminderMessage || "Take a break. Posture. Water."
+    );
+  }
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
@@ -334,28 +376,138 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
       await chrome.storage.session.set(sess);
     }
   } catch {}
+
+  // If the focus tab is closed while focus mode is locked, reopen it.
+  const f = await getFocus();
+  if (f.active && tabId === f.tabId) {
+    const tab = await chrome.tabs.create({ url: f.url, active: true });
+    await chrome.storage.session.set({ focus: { ...f, tabId: tab.id } });
+  }
 });
+
+// ---- Hardcore focus mode ----
+
+const FOCUS_OFF = { active: false, endsAt: 0, tabId: -1, url: "" };
+
+async function getFocus() {
+  const { focus } = await chrome.storage.session.get({ focus: FOCUS_OFF });
+  if (focus.active && focus.endsAt && Date.now() >= focus.endsAt) {
+    await chrome.storage.session.set({ focus: FOCUS_OFF });
+    return { ...FOCUS_OFF };
+  }
+  return focus;
+}
+
+function focusTarget(override) {
+  const u = (override ?? settings.focusUrl ?? "").trim();
+  return u || chrome.runtime.getURL("focus.html");
+}
+
+async function startFocus(minutes, overrideUrl) {
+  const mins = Math.max(1, Math.min(600, Math.round(Number(minutes) || 0)));
+  const url = focusTarget(overrideUrl);
+  const tab = await chrome.tabs.create({ url, active: true });
+  const endsAt = Date.now() + mins * 60 * 1000;
+  await chrome.storage.session.set({
+    focus: { active: true, endsAt, tabId: tab.id, url }
+  });
+  chrome.alarms.create("focus-end", { when: endsAt });
+  try {
+    await chrome.windows.update(tab.windowId, { focused: true });
+  } catch {}
+  return await getFocus();
+}
+
+async function stopFocus() {
+  await chrome.storage.session.set({ focus: FOCUS_OFF });
+  chrome.alarms.clear("focus-end");
+}
+
+// Snap the user back to the focus tab (recreating it if it was closed).
+async function enforceFocus() {
+  const f = await getFocus();
+  if (!f.active) return;
+  let focusTab = null;
+  try {
+    focusTab = await chrome.tabs.get(f.tabId);
+  } catch {}
+  if (!focusTab) {
+    const tab = await chrome.tabs.create({ url: f.url, active: true });
+    await chrome.storage.session.set({ focus: { ...f, tabId: tab.id } });
+    return;
+  }
+  try {
+    await chrome.tabs.update(f.tabId, { active: true });
+    await chrome.windows.update(focusTab.windowId, { focused: true });
+  } catch {}
+}
+
+chrome.tabs.onActivated.addListener(async (info) => {
+  const f = await getFocus();
+  if (f.active && info.tabId !== f.tabId) enforceFocus();
+});
+
+chrome.tabs.onCreated.addListener(async (tab) => {
+  const f = await getFocus();
+  if (!f.active || tab.id === f.tabId) return;
+  if (tab.id != null) {
+    chrome.tabs.update(tab.id, { url: f.url }).catch(() => {});
+  }
+  enforceFocus();
+});
+
+chrome.windows.onFocusChanged.addListener(async (winId) => {
+  if (winId === chrome.windows.WINDOW_ID_NONE) return;
+  const f = await getFocus();
+  if (f.active) enforceFocus();
+});
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name !== "focus-end") return;
+  const f = await getFocus(); // getFocus auto-clears if expired
+  if (!f.active) chrome.alarms.clear("focus-end");
+});
+
+// Re-arm the end alarm if the service worker restarted mid-session.
+(async () => {
+  const f = await getFocus();
+  if (f.active) chrome.alarms.create("focus-end", { when: f.endsAt });
+})();
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === "grant-grace" && sender.tab) {
     const seconds = Math.max(30, Number(msg.seconds) || 60);
     graceUntil.set(sender.tab.id, Date.now() + seconds * 1000);
     sendResponse({ ok: true });
+    return false;
   }
   if (msg && msg.type === "get-settings") {
     sendResponse({ settings });
+    return false;
   }
-  return true;
-});
-
-chrome.action.onClicked.addListener(() => {
-  const fallback = () =>
-    chrome.tabs.create({ url: chrome.runtime.getURL("options.html") });
-  try {
-    chrome.runtime.openOptionsPage(() => {
-      if (chrome.runtime.lastError) fallback();
-    });
-  } catch (e) {
-    fallback();
+  if (msg && msg.type === "get-focus") {
+    getFocus().then((f) =>
+      sendResponse({
+        active: f.active,
+        endsAt: f.endsAt,
+        remainingMs: f.active ? Math.max(0, f.endsAt - Date.now()) : 0
+      })
+    );
+    return true;
   }
+  if (msg && msg.type === "start-focus") {
+    startFocus(msg.minutes, msg.url).then((f) =>
+      sendResponse({
+        ok: true,
+        endsAt: f.endsAt,
+        remainingMs: Math.max(0, f.endsAt - Date.now())
+      })
+    );
+    return true;
+  }
+  if (msg && msg.type === "stop-focus") {
+    stopFocus().then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  return false;
 });

@@ -34,6 +34,22 @@
       </section>
 
       <section>
+        <h2>Periodic reminder</h2>
+        <p class="hint">
+          A full-screen flash on whatever you're looking at, on any site —
+          for posture, hydration, breaks, etc. Independent of blocked sites.
+        </p>
+        <label>
+          Message
+          <input id="reminderMessage" type="text" placeholder="Sit up straight. Drink some water." />
+        </label>
+        <label>
+          Remind every N hours (0 = off; e.g. 0.5 = 30 min)
+          <input id="reminderEveryHours" type="number" min="0" max="24" step="0.5" />
+        </label>
+      </section>
+
+      <section>
         <h2>Blocked sites</h2>
         <p class="hint">
           Each rule uses a <a href="https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns" target="_blank">Chrome match pattern</a>.
@@ -42,6 +58,7 @@
         <table id="rules">
           <thead>
             <tr>
+              <th>On</th>
               <th>Pattern</th>
               <th>Action</th>
               <th>Redirect to (optional URL)</th>

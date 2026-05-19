@@ -13,7 +13,8 @@
     "open_in_tab": true
   },
   "action": {
-    "default_title": "Get Back To Work — Settings",
+    "default_title": "Get Back To Work",
+    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

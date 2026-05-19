@@ -20,7 +20,10 @@ const DEFAULTS = {
   delaySeconds: 10,
   flashAfterMinutes: 15,
   reflashEveryMinutes: 15,
+  reminderMessage: "Sit up straight. Unclench your jaw. Drink some water.",
+  reminderEveryHours: 0,
   allowWindows: [],
+  focusUrl: "",
   rules: DEFAULT_RULES
 };
 
@@ -28,8 +31,48 @@ const $ = (id) => document.getElementById(id);
 const tbody = document.querySelector("#rules tbody");
 const winBody = document.querySelector("#windows tbody");
 
-function addRow(pattern = "", redirectTo = "", action = "redirect") {
+// A Delete button that requires a second click within 4s to confirm.
+function makeDeleteButton(onConfirm) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "danger";
+  btn.textContent = "Delete";
+  let armed = false;
+  let timer = null;
+  btn.addEventListener("click", () => {
+    if (armed) {
+      clearTimeout(timer);
+      onConfirm();
+      return;
+    }
+    armed = true;
+    btn.textContent = "Confirm?";
+    btn.classList.add("armed");
+    timer = setTimeout(() => {
+      armed = false;
+      btn.textContent = "Delete";
+      btn.classList.remove("armed");
+    }, 4000);
+  });
+  return btn;
+}
+
+function addRow(
+  pattern = "",
+  redirectTo = "",
+  action = "redirect",
+  enabled = true
+) {
   const tr = document.createElement("tr");
+
+  const tdEnabled = document.createElement("td");
+  tdEnabled.className = "on";
+  const chkEnabled = document.createElement("input");
+  chkEnabled.type = "checkbox";
+  chkEnabled.className = "enabled";
+  chkEnabled.checked = enabled !== false;
+  chkEnabled.title = "Enable/disable this rule without deleting it";
+  tdEnabled.appendChild(chkEnabled);
 
   const tdPattern = document.createElement("td");
   const inPattern = document.createElement("input");
@@ -74,13 +117,9 @@ function addRow(pattern = "", redirectTo = "", action = "redirect") {
 
   const tdDel = document.createElement("td");
   tdDel.className = "del";
-  const del = document.createElement("button");
-  del.type = "button";
-  del.className = "danger";
-  del.textContent = "Delete";
-  del.addEventListener("click", () => tr.remove());
-  tdDel.appendChild(del);
+  tdDel.appendChild(makeDeleteButton(() => tr.remove()));
 
+  tr.appendChild(tdEnabled);
   tr.appendChild(tdPattern);
   tr.appendChild(tdAction);
   tr.appendChild(tdRedirect);
@@ -122,12 +161,7 @@ function addWindowRow(start = "12:00", end = "13:00", mode = "normal") {
 
   const tdDel = document.createElement("td");
   tdDel.className = "del";
-  const del = document.createElement("button");
-  del.type = "button";
-  del.className = "danger";
-  del.textContent = "Delete";
-  del.addEventListener("click", () => tr.remove());
-  tdDel.appendChild(del);
+  tdDel.appendChild(makeDeleteButton(() => tr.remove()));
 
   tr.append(tdStart, tdEnd, tdMode, tdDel);
   winBody.appendChild(tr);
@@ -140,12 +174,19 @@ async function load() {
   $("delaySeconds").value = s.delaySeconds;
   $("flashAfterMinutes").value = s.flashAfterMinutes;
   $("reflashEveryMinutes").value = s.reflashEveryMinutes;
+  $("reminderMessage").value = s.reminderMessage || "";
+  $("reminderEveryHours").value = s.reminderEveryHours;
   tbody.innerHTML = "";
   if (!s.rules.length) {
-    addRow("", "", "redirect");
+    addRow("", "", "redirect", true);
   } else {
     for (const r of s.rules)
-      addRow(r.pattern || "", r.redirectTo || "", r.action || "redirect");
+      addRow(
+        r.pattern || "",
+        r.redirectTo || "",
+        r.action || "redirect",
+        r.enabled !== false
+      );
   }
   winBody.innerHTML = "";
   for (const w of s.allowWindows || [])
@@ -158,8 +199,9 @@ async function save() {
     const pattern = tr.querySelector(".pattern").value.trim();
     const redirectTo = tr.querySelector(".redirect").value.trim();
     const action = tr.querySelector(".action").value;
+    const enabled = tr.querySelector(".enabled").checked;
     if (!pattern) continue;
-    rules.push({ pattern, action, redirectTo });
+    rules.push({ pattern, action, redirectTo, enabled });
   }
 
   const allowWindows = [];
@@ -179,6 +221,11 @@ async function save() {
     reflashEveryMinutes: Math.max(
       0,
       Number($("reflashEveryMinutes").value) || 0
+    ),
+    reminderMessage: $("reminderMessage").value || DEFAULTS.reminderMessage,
+    reminderEveryHours: Math.max(
+      0,
+      Number($("reminderEveryHours").value) || 0
     ),
     allowWindows,
     rules
