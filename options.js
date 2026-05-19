@@ -57,6 +57,31 @@ function makeDeleteButton(onConfirm) {
   return btn;
 }
 
+// Adds a two-click confirm to an existing button: first click arms it
+// (swaps to armedText for 4s), second click runs onConfirm.
+function armConfirm(btn, baseText, armedText, onConfirm) {
+  let armed = false;
+  let timer = null;
+  btn.addEventListener("click", () => {
+    if (armed) {
+      clearTimeout(timer);
+      armed = false;
+      btn.textContent = baseText;
+      btn.classList.remove("armed");
+      onConfirm();
+      return;
+    }
+    armed = true;
+    btn.textContent = armedText;
+    btn.classList.add("armed");
+    timer = setTimeout(() => {
+      armed = false;
+      btn.textContent = baseText;
+      btn.classList.remove("armed");
+    }, 4000);
+  });
+}
+
 function addRow(
   pattern = "",
   redirectTo = "",
@@ -290,9 +315,56 @@ async function loadStats() {
   }
 }
 
-$("resetStats").addEventListener("click", async () => {
+armConfirm($("resetStats"), "Reset stats", "Confirm reset?", async () => {
   await chrome.storage.local.set({ stats: {} });
   loadStats();
+});
+
+const noteSort = { key: "host", dir: 1 };
+
+function sortNotes(notes) {
+  const { key, dir } = noteSort;
+  return notes.slice().sort((a, b) => {
+    let av, bv;
+    if (key === "ts") {
+      av = a.ts || 0;
+      bv = b.ts || 0;
+    } else {
+      av = String(a[key] || "").toLowerCase();
+      bv = String(b[key] || "").toLowerCase();
+    }
+    if (av < bv) return -dir;
+    if (av > bv) return dir;
+    return (b.ts || 0) - (a.ts || 0);
+  });
+}
+
+function updateNoteCarets() {
+  document.querySelectorAll("#notes th.sortable").forEach((th) => {
+    const c = th.querySelector(".caret");
+    if (!c) return;
+    if (th.dataset.sort === noteSort.key) {
+      c.textContent = noteSort.dir === 1 ? "▲" : "▼";
+      th.classList.add("sorted");
+    } else {
+      c.textContent = "⇅";
+      th.classList.remove("sorted");
+    }
+  });
+}
+
+document.querySelectorAll("#notes th.sortable").forEach((th) => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.sort;
+    if (noteSort.key === key) {
+      noteSort.dir *= -1;
+    } else {
+      noteSort.key = key;
+      noteSort.dir = 1;
+    }
+    updateNoteCarets();
+    loadNotes();
+  });
 });
 
 async function loadNotes() {
@@ -309,7 +381,7 @@ async function loadNotes() {
     tbody.appendChild(tr);
     return;
   }
-  for (const item of notes.slice().reverse()) {
+  for (const item of sortNotes(notes)) {
     const tr = document.createElement("tr");
     const tdW = document.createElement("td");
     tdW.textContent = formatRelative(item.ts);
@@ -332,30 +404,10 @@ async function loadNotes() {
   }
 }
 
-(() => {
-  const btn = $("clearNotes");
-  let armed = false;
-  let timer = null;
-  btn.addEventListener("click", async () => {
-    if (armed) {
-      clearTimeout(timer);
-      armed = false;
-      btn.textContent = "Clear all";
-      btn.classList.remove("armed");
-      await chrome.storage.local.set({ notes: [] });
-      loadNotes();
-      return;
-    }
-    armed = true;
-    btn.textContent = "Confirm clear all?";
-    btn.classList.add("armed");
-    timer = setTimeout(() => {
-      armed = false;
-      btn.textContent = "Clear all";
-      btn.classList.remove("armed");
-    }, 4000);
-  });
-})();
+armConfirm($("clearNotes"), "Clear all", "Confirm clear all?", async () => {
+  await chrome.storage.local.set({ notes: [] });
+  loadNotes();
+});
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
@@ -365,8 +417,9 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 $("add").addEventListener("click", () => addRow());
 $("addWindow").addEventListener("click", () => addWindowRow());
-$("save").addEventListener("click", save);
+armConfirm($("save"), "Save", "Confirm save?", save);
 
 load();
 loadStats();
+updateNoteCarets();
 loadNotes();

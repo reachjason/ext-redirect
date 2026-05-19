@@ -47,6 +47,17 @@ th, td {
   font-size: 0.875rem;
 }
 th { color: #6b7280; font-weight: 500; }
+#notes th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+#notes th.sortable:hover { color: #9aa0aa; }
+#notes th.sorted { color: #e8eaed; }
+#notes th .caret {
+  font-size: 0.75rem;
+  opacity: 0.5;
+}
+#notes th.sorted .caret { opacity: 1; }
 td input {
   width: 100%;
   padding: 0.4rem 0.55rem;
