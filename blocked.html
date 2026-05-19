@@ -9,7 +9,14 @@
     <main>
       <h1 id="message">Get back to work.</h1>
       <p id="focus" class="focus"></p>
+      <p id="wait" class="wait" hidden></p>
       <p class="from">You tried to visit: <span id="from"></span></p>
+      <div class="note">
+        <input id="noteInput" type="text" autocomplete="off"
+          placeholder="Why did you want to go here? Save it for later." />
+        <button id="saveNote" type="button">Save for later</button>
+        <p id="noteStatus" class="note-status" hidden></p>
+      </div>
       <div class="buttons">
         <button id="goRedirect" disabled hidden></button>
         <button id="continue" disabled>Continue anyway (<span id="count">10</span>s)</button>

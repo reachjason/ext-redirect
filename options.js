@@ -295,8 +295,72 @@ $("resetStats").addEventListener("click", async () => {
   loadStats();
 });
 
+async function loadNotes() {
+  const { notes = [] } = await chrome.storage.local.get("notes");
+  const tbody = document.querySelector("#notes tbody");
+  tbody.innerHTML = "";
+  if (!notes.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 4;
+    td.style.color = "#6b7280";
+    td.textContent = "Nothing batched yet.";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+  for (const item of notes.slice().reverse()) {
+    const tr = document.createElement("tr");
+    const tdW = document.createElement("td");
+    tdW.textContent = formatRelative(item.ts);
+    const tdS = document.createElement("td");
+    tdS.textContent = item.host || "—";
+    const tdN = document.createElement("td");
+    tdN.textContent = item.note;
+    const tdD = document.createElement("td");
+    tdD.appendChild(
+      makeDeleteButton(async () => {
+        const { notes: cur = [] } = await chrome.storage.local.get("notes");
+        await chrome.storage.local.set({
+          notes: cur.filter((n) => n.id !== item.id)
+        });
+        loadNotes();
+      })
+    );
+    tr.append(tdW, tdS, tdN, tdD);
+    tbody.appendChild(tr);
+  }
+}
+
+(() => {
+  const btn = $("clearNotes");
+  let armed = false;
+  let timer = null;
+  btn.addEventListener("click", async () => {
+    if (armed) {
+      clearTimeout(timer);
+      armed = false;
+      btn.textContent = "Clear all";
+      btn.classList.remove("armed");
+      await chrome.storage.local.set({ notes: [] });
+      loadNotes();
+      return;
+    }
+    armed = true;
+    btn.textContent = "Confirm clear all?";
+    btn.classList.add("armed");
+    timer = setTimeout(() => {
+      armed = false;
+      btn.textContent = "Clear all";
+      btn.classList.remove("armed");
+    }, 4000);
+  });
+})();
+
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes.stats) loadStats();
+  if (area !== "local") return;
+  if (changes.stats) loadStats();
+  if (changes.notes) loadNotes();
 });
 
 $("add").addEventListener("click", () => addRow());
@@ -305,3 +369,4 @@ $("save").addEventListener("click", save);
 
 load();
 loadStats();
+loadNotes();

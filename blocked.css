@@ -29,6 +29,11 @@ h1 {
   margin: 0 0 2rem;
   white-space: pre-wrap;
 }
+.wait {
+  font-size: 1.05rem;
+  color: #f0c674;
+  margin: 0 0 1.5rem;
+}
 .from {
   font-size: 0.875rem;
   color: #8a8f98;
@@ -50,6 +55,36 @@ button:disabled {
 }
 button:not(:disabled):hover {
   background: #232732;
+}
+.note {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 0 0 2rem;
+}
+#noteInput {
+  font: inherit;
+  flex: 1 1 320px;
+  max-width: 420px;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #2a2f3a;
+  background: #1a1d24;
+  color: #e8eaed;
+}
+#noteInput::placeholder {
+  color: #6b7280;
+}
+#noteInput:focus {
+  outline: none;
+  border-color: #f0c674;
+}
+.note-status {
+  flex-basis: 100%;
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+  color: #f0c674;
 }
 .buttons {
   display: flex;

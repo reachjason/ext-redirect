@@ -252,6 +252,23 @@ async function recordBlock(pattern, url) {
 // ---- Time-on-site flash reminder ----
 //
 // Tick-based: every TICK_SECONDS, if the focused tab is on a matched URL,
+// Appends a batched-distraction note to chrome.storage.local; returns the
+// new total count. Capped to the most recent 500.
+async function saveNote(host, note) {
+  const text = String(note || "").trim().slice(0, 500);
+  if (!text) return null;
+  const { notes = [] } = await chrome.storage.local.get("notes");
+  notes.push({
+    id: Date.now() + ":" + Math.random().toString(36).slice(2, 8),
+    host: String(host || "").slice(0, 200),
+    note: text,
+    ts: Date.now()
+  });
+  if (notes.length > 500) notes.splice(0, notes.length - 500);
+  await chrome.storage.local.set({ notes });
+  return notes.length;
+}
+
 // add TICK_SECONDS to that tab's accumulator (stored in chrome.storage.session
 // so it survives service-worker sleeps). When the accumulator crosses the
 // threshold, flash the page.
@@ -504,6 +521,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg && msg.type === "stop-focus") {
     stopFocus().then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (msg && msg.type === "save-note") {
+    saveNote(msg.host, msg.note).then((count) =>
+      sendResponse({ ok: count != null, count: count || 0 })
+    );
     return true;
   }
   return false;
