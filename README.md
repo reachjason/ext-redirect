@@ -114,7 +114,7 @@ Windows are evaluated when you navigate. If a window opens or closes while you'r
 
 ## Hardcore focus mode
 
-Click the toolbar icon to open the focus-mode popup. In it you set the **Focus URL** (the single page you'll be locked to — leave blank for the built-in focus page) and a number of **minutes**, then hit **Start focus mode**. The Focus URL is remembered for next time. The extension opens that URL in a tab and locks you to it:
+Click the toolbar icon to open the focus-mode popup. In it you set the **Focus URL** (the single page you'll be locked to — leave blank to lock to the tab you're currently on) and a number of **minutes**, then hit **Start focus mode**. The Focus URL is remembered for next time. If you give a URL, the extension opens it in a tab and locks you there; if you leave it blank, it locks you to your current page in place (or, if that page can't be locked — `chrome://`, the Web Store, an extension page — it falls back to the built-in focus page). Either way it then locks you to that page:
 
 - Switching to any other tab snaps you straight back to the focus tab.
 - Newly opened tabs and any navigation in non-focus tabs are redirected to the focus URL. **Nothing is closed** — your other tabs are left intact, just unreachable.

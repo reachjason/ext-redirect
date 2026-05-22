@@ -418,22 +418,45 @@ async function getFocus() {
   return focus;
 }
 
-function focusTarget(override) {
-  const u = (override ?? settings.focusUrl ?? "").trim();
-  return u || chrome.runtime.getURL("focus.html");
-}
-
 async function startFocus(minutes, overrideUrl) {
   const mins = Math.max(1, Math.min(600, Math.round(Number(minutes) || 0)));
-  const url = focusTarget(overrideUrl);
-  const tab = await chrome.tabs.create({ url, active: true });
+  const override = (overrideUrl ?? settings.focusUrl ?? "").trim();
+
+  let url, tabId, windowId;
+  if (override) {
+    // Explicit URL: open it in a fresh tab and lock to that.
+    const tab = await chrome.tabs.create({ url: override, active: true });
+    url = override;
+    tabId = tab.id;
+    windowId = tab.windowId;
+  } else {
+    // Blank: lock to the page the user is currently on, in place.
+    const [active] = await chrome.tabs.query({
+      active: true,
+      lastFocusedWindow: true
+    });
+    if (active && active.id != null && /^https?:/i.test(active.url || "")) {
+      url = active.url;
+      tabId = active.id;
+      windowId = active.windowId;
+    } else {
+      // Current tab isn't lockable (chrome://, Web Store, extension page,
+      // etc.) — fall back to the built-in focus page.
+      const fallback = chrome.runtime.getURL("focus.html");
+      const tab = await chrome.tabs.create({ url: fallback, active: true });
+      url = fallback;
+      tabId = tab.id;
+      windowId = tab.windowId;
+    }
+  }
+
   const endsAt = Date.now() + mins * 60 * 1000;
   await chrome.storage.session.set({
-    focus: { active: true, endsAt, tabId: tab.id, url }
+    focus: { active: true, endsAt, tabId, url }
   });
   chrome.alarms.create("focus-end", { when: endsAt });
   try {
-    await chrome.windows.update(tab.windowId, { focused: true });
+    await chrome.windows.update(windowId, { focused: true });
   } catch {}
   return await getFocus();
 }
